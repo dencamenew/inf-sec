@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hacker RSA Encoder/Decoder</title>
+  <style>
+    :root {
+      --bg: #050805;
+      --panel: rgba(10, 20, 10, 0.88);
+      --panel-2: rgba(7, 14, 7, 0.92);
+      --line: rgba(57, 255, 20, 0.25);
+      --text: #b7ffb0;
+      --muted: #6ef06b;
+      --accent: #39ff14;
+      --accent-soft: rgba(57, 255, 20, 0.18);
+      --danger: #ff6b6b;
+      --shadow: 0 0 10px rgba(57, 255, 20, 0.2), 0 0 28px rgba(57, 255, 20, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(57,255,20,0.08), transparent 35%),
+        linear-gradient(180deg, #020402 0%, #061006 100%);
+      color: var(--text);
+      font-family: "Consolas", "Courier New", monospace;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(57,255,20,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57,255,20,0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.25;
+    }
+
+    .scanlines::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.025),
+        rgba(255,255,255,0.025) 1px,
+        transparent 2px,
+        transparent 4px
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.2;
+    }
+
+    .wrap {
+      max-width: 1150px;
+      margin: 32px auto;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .title {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: 0 0 12px rgba(57,255,20,0.55);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .terminal-line {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #90ff86;
+      opacity: 0.9;
+      white-space: nowrap;
+      overflow: hidden;
+      border-right: 2px solid var(--accent);
+      width: fit-content;
+      animation: blink 1s steps(1) infinite;
+    }
+
+    @keyframes blink {
+      50% { border-color: transparent; }
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font: inherit;
+      transition: 0.2s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .tab-btn:hover,
+    .tab-btn.active {
+      color: var(--accent);
+      border-color: rgba(57,255,20,0.7);
+      background: rgba(15, 28, 15, 0.96);
+      text-shadow: 0 0 8px rgba(57,255,20,0.45);
+      transform: translateY(-1px);
+    }
+
+    .panel {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel.active { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 16px;
+      letter-spacing: 1px;
+    }
+
+    .field,
+    .params-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .params-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(57,255,20,0.22);
+      background: rgba(0, 0, 0, 0.45);
+      color: var(--text);
+      font: inherit;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(57,255,20,0.75);
+      box-shadow: 0 0 0 3px rgba(57,255,20,0.1);
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      cursor: pointer;
+      background: linear-gradient(180deg, rgba(18,40,18,0.95), rgba(9,20,9,0.98));
+      color: var(--accent);
+      box-shadow: var(--shadow);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(57,255,20,0.72);
+    }
+
+    .btn.secondary {
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .note,
+    .status {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .status {
+      min-height: 20px;
+    }
+
+    .status.error { color: var(--danger); }
+    .status.success { color: #8fff8b; }
+
+    .footer-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #82d57f;
+      opacity: 0.85;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .params-grid {
+        grid-template-columns: 1fr;
+      }
+
+      textarea {
+        min-height: 180px;
+      }
+    }
+  </style>
+</head>
+<body class="scanlines">
+  <div class="wrap">
+    <section class="header">
+      <h1 class="title">RSA // HACKER CONSOLE</h1>
+      <p class="subtitle">
+        Две вкладки для кодирования и декодирования текста. Выберите шифр, задайте параметры RSA и работайте прямо в браузере.
+      </p>
+      <div class="terminal-line">root@matrix:~# init rsa_console --mode secure</div>
+    </section>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="encodePanel">Закодировать</button>
+      <button class="tab-btn" data-tab="decodePanel">Декодировать</button>
+    </div>
+
+    <section id="encodePanel" class="panel active">
+      <div class="grid">
+        <div class="col">
+          <div class="card">
+            <h3>Входные данные</h3>
+            <div class="field">
+              <label for="encodeCipher">Выбор шифра</label>
+              <select id="encodeCipher">
+                <option value="rsa">RSA</option>
+              </select>
+            </div>
+            <div class="params-grid">
+              <div class="field">
+                <label for="encodeP">p</label>
+                <input id="encodeP" type="number" value="61" min="2" />
+              </div>
+              <div class="field">
+                <label for="encodeQ">q</label>
+                <input id="encodeQ" type="number" value="53" min="2" />
+              </div>
+              <div class="field">
+                <label for="encodeE">e</label>
+                <input id="encodeE" type="number" value="17" min="2" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="encodeInput">Текст для кодирования</label>
+              <textarea id="encodeInput" placeholder="Введите текст..."></textarea>
+            </div>
+            <div class="actions">
+              <button class="btn" id="encodeBtn">Выполнить кодирование</button>
+              <button class="btn secondary" id="copyEncodedBtn">Копировать результат</button>
+              <button class="btn secondary" id="clearEncodeBtn">Очистить</button>
+            </div>
+            <div class="status" id="encodeStatus"></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card">
+            <h3>Результат</h3>
+            <div class="field">
+              <label for="encodeOutput">Зашифрованные блоки</label>
+              <textarea id="encodeOutput" readonly placeholder="Здесь появится результат..."></textarea>
+            </div>
+            <div class="note">
+              Вывод формируется как последовательность чисел, разделённых пробелами. Каждый байт текста шифруется отдельно через RSA.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="decodePanel" class="panel">
+      <div class="grid">
+        <div class="col">
+          <div class="card">
+            <h3>Входные данные</h3>
+            <div class="field">
+              <label for="decodeCipher">Выбор шифра</label>
+              <select id="decodeCipher">
+                <option value="rsa">RSA</option>
+              </select>
+            </div>
+            <div class="params-grid">
+              <div class="field">
+                <label for="decodeP">p</label>
+                <input id="decodeP" type="number" value="61" min="2" />
+              </div>
+              <div class="field">
+                <label for="decodeQ">q</label>
+                <input id="decodeQ" type="number" value="53" min="2" />
+              </div>
+              <div class="field">
+                <label for="decodeE">e</label>
+                <input id="decodeE" type="number" value="17" min="2" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="decodeInput">Числа для декодирования</label>
+              <textarea id="decodeInput" placeholder="Например: 3000 28 2726 ..."></textarea>
+            </div>
+            <div class="actions">
+              <button class="btn" id="decodeBtn">Выполнить декодирование</button>
+              <button class="btn secondary" id="copyDecodedBtn">Копировать результат</button>
+              <button class="btn secondary" id="clearDecodeBtn">Очистить</button>
+            </div>
+            <div class="status" id="decodeStatus"></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card">
+            <h3>Результат</h3>
+            <div class="field">
+              <label for="decodeOutput">Расшифрованный текст</label>
+              <textarea id="decodeOutput" readonly placeholder="Здесь появится исходный текст..."></textarea>
+            </div>
+            <div class="note">
+              Для расшифровки используются те же параметры RSA: p, q и e. Приватная экспонента d вычисляется автоматически в браузере.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Важно: это демонстрационная реализация RSA для учебных целей. Для реальной криптографии не шифруют сообщение побайтно и используют безопасную генерацию ключей.
+    </div>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.panel');
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    function gcd(a, b) {
+      while (b !== 0n) {
+        [a, b] = [b, a % b];
+      }
+      return a;
+    }
+
+    function egcd(a, b) {
+      if (a === 0n) return [b, 0n, 1n];
+      const [g, x1, y1] = egcd(b % a, a);
+      return [g, y1 - (b / a) * x1, x1];
+    }
+
+    function modInverse(e, phi) {
+      const [g, x] = egcd(e, phi);
+      if (g !== 1n) throw new Error('e не имеет обратного элемента по модулю φ(n).');
+      return ((x % phi) + phi) % phi;
+    }
+
+    function modPow(base, exponent, modulus) {
+      if (modulus === 1n) return 0n;
+      let result = 1n;
+      let b = base % modulus;
+      let e = exponent;
+      while (e > 0n) {
+        if (e % 2n === 1n) result = (result * b) % modulus;
+        e = e / 2n;
+        b = (b * b) % modulus;
+      }
+      return result;
+    }
+
+    function isPrime(num) {
+      if (num < 2n) return false;
+      for (let i = 2n; i * i <= num; i++) {
+        if (num % i === 0n) return false;
+      }
+      return true;
+    }
+
+    function getRSAParams(prefix) {
+      const p = BigInt(document.getElementById(prefix + 'P').value);
+      const q = BigInt(document.getElementById(prefix + 'Q').value);
+      const e = BigInt(document.getElementById(prefix + 'E').value);
+
+      if (!isPrime(p) || !isPrime(q)) {
+        throw new Error('p и q должны быть простыми числами.');
+      }
+      if (p === q) {
+        throw new Error('p и q не должны быть одинаковыми.');
+      }
+
+      const n = p * q;
+      const phi = (p - 1n) * (q - 1n);
+
+      if (e <= 1n || e >= phi) {
+        throw new Error('e должно быть больше 1 и меньше φ(n).');
+      }
+      if (gcd(e, phi) !== 1n) {
+        throw new Error('e должно быть взаимно простым с φ(n).');
+      }
+      if (n <= 255n) {
+        throw new Error('n должно быть больше 255, иначе нельзя корректно шифровать байты текста.');
+      }
+
+      const d = modInverse(e, phi);
+      return { p, q, e, d, n, phi };
+    }
+
+    function setStatus(id, message, type = '') {
+      const el = document.getElementById(id);
+      el.textContent = message;
+      el.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function copyText(id, statusId) {
+      const value = document.getElementById(id).value;
+      if (!value.trim()) {
+        setStatus(statusId, 'Нечего копировать.', 'error');
+        return;
+      }
+      navigator.clipboard.writeText(value)
+        .then(() => setStatus(statusId, 'Результат скопирован.', 'success'))
+        .catch(() => setStatus(statusId, 'Не удалось скопировать текст.', 'error'));
+    }
+
+    document.getElementById('encodeBtn').addEventListener('click', () => {
+      try {
+        const { e, n } = getRSAParams('encode');
+        const input = document.getElementById('encodeInput').value;
+        if (!input) throw new Error('Введите текст для кодирования.');
+
+        const bytes = new TextEncoder().encode(input);
+        const encrypted = Array.from(bytes, byte => modPow(BigInt(byte), e, n).toString());
+        document.getElementById('encodeOutput').value = encrypted.join(' ');
+        setStatus('encodeStatus', `Кодирование завершено. Блоков: ${encrypted.length}.`, 'success');
+      } catch (error) {
+        setStatus('encodeStatus', error.message, 'error');
+      }
+    });
+
+    document.getElementById('decodeBtn').addEventListener('click', () => {
+      try {
+        const { d, n } = getRSAParams('decode');
+        const input = document.getElementById('decodeInput').value.trim();
+        if (!input) throw new Error('Введите числа для декодирования.');
+
+        const chunks = input.split(/\s+/).filter(Boolean);
+        const bytes = chunks.map(chunk => {
+          if (!/^\d+$/.test(chunk)) {
+            throw new Error('В поле расшифровки должны быть только целые числа, разделённые пробелами.');
+          }
+          const value = BigInt(chunk);
+          const decoded = modPow(value, d, n);
+          if (decoded < 0n || decoded > 255n) {
+            throw new Error('Один из расшифрованных блоков выходит за пределы байта. Проверьте параметры RSA.');
+          }
+          return Number(decoded);
+        });
+
+        const output = new TextDecoder().decode(new Uint8Array(bytes));
+        document.getElementById('decodeOutput').value = output;
+        setStatus('decodeStatus', `Декодирование завершено. Блоков: ${chunks.length}.`, 'success');
+      } catch (error) {
+        setStatus('decodeStatus', error.message, 'error');
+      }
+    });
+
+    document.getElementById('copyEncodedBtn').addEventListener('click', () => copyText('encodeOutput', 'encodeStatus'));
+    document.getElementById('copyDecodedBtn').addEventListener('click', () => copyText('decodeOutput', 'decodeStatus'));
+
+    document.getElementById('clearEncodeBtn').addEventListener('click', () => {
+      document.getElementById('encodeInput').value = '';
+      document.getElementById('encodeOutput').value = '';
+      setStatus('encodeStatus', 'Поля очищены.', 'success');
+    });
+
+    document.getElementById('clearDecodeBtn').addEventListener('click', () => {
+      document.getElementById('decodeInput').value = '';
+      document.getElementById('decodeOutput').value = '';
+      setStatus('decodeStatus', 'Поля очищены.', 'success');
+    });
+  </script>
+</body>
+</html>
